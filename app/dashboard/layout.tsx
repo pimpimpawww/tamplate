@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/session'
 import { logoutAction } from '@/app/actions/auth-actions'
 import prisma from '@/lib/prisma'
 import Image from 'next/image'
+import AIAssistantWidget from '@/components/AIAssistantWidget'
 
 export default async function DashboardLayout({
   children,
@@ -28,8 +29,8 @@ export default async function DashboardLayout({
               <h1 className="text-xl font-semibold text-gray-800">Dashboard Template</h1>
             </div>
             <div className="flex items-center gap-4">
-              {/* Profile Avatar */}
-              <div className="flex items-center gap-3">
+              {/* Profile Avatar - Clickable */}
+              <a href="/dashboard/profile" className="flex items-center gap-3 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
                 {profile?.fotoProfil ? (
                   <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-sm hover:border-blue-400 transition-colors">
                     <Image
@@ -51,7 +52,7 @@ export default async function DashboardLayout({
                   <span className="text-sm font-medium text-gray-700">{session.email}</span>
                   <span className="text-xs text-gray-500">{session.role}</span>
                 </div>
-              </div>
+              </a>
               
               <div className="h-8 w-px bg-gray-300"></div>
               
@@ -135,6 +136,9 @@ export default async function DashboardLayout({
         </aside>
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
+      
+      {/* AI Assistant Widget */}
+      <AIAssistantWidget />
     </div>
   )
 }

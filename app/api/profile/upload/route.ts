@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { verifySession } from '@/lib/session'
-import { uploadAvatar, deleteAvatar, getFileNameFromUrl } from '@/lib/supabase'
 import prisma from '@/lib/prisma'
+import { writeFile, unlink } from 'fs/promises'
+import { join } from 'path'
+import { existsSync } from 'fs'
 
 export async function POST(request: Request) {
   try {
@@ -41,20 +43,42 @@ export async function POST(request: Request) {
       )
     }
 
+    // Verify user exists, if not return clear error
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true },
+    })
+
+    if (!userExists) {
+      console.error('User not found:', session.userId, session.email)
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Session tidak valid. Silakan logout dan login kembali.',
+          debug: {
+            userId: session.userId,
+            email: session.email,
+          }
+        },
+        { status: 400 }
+      )
+    }
+
     // Check if profile exists and has old photo
-    let profile = await prisma.profile.findUnique({
+    const existingProfile = await prisma.profile.findUnique({
       where: { userId: session.userId },
     })
 
-    // Delete old photo from storage if exists
-    if (profile?.fotoProfil) {
-      console.log('Old photo URL:', profile.fotoProfil)
-      const oldFileName = getFileNameFromUrl(profile.fotoProfil)
-      console.log('Extracted filename:', oldFileName)
-      
-      if (oldFileName) {
-        const deleteResult = await deleteAvatar(oldFileName)
-        console.log('Delete result:', deleteResult)
+    // Delete old photo from file system if exists
+    if (existingProfile?.fotoProfil) {
+      try {
+        const oldFilePath = join(process.cwd(), 'public', existingProfile.fotoProfil)
+        if (existsSync(oldFilePath)) {
+          await unlink(oldFilePath)
+          console.log('Old photo deleted:', oldFilePath)
+        }
+      } catch (error) {
+        console.error('Error deleting old photo:', error)
       }
     }
 
@@ -64,41 +88,35 @@ export async function POST(request: Request) {
 
     // Generate unique filename
     const fileExt = file.name.split('.').pop()
-    const fileName = `${session.userId}-${Date.now()}.${fileExt}`
+    const fileName = `avatar-${session.userId}-${Date.now()}.${fileExt}`
+    const uploadDir = join(process.cwd(), 'public', 'uploads', 'avatars')
+    const filePath = join(uploadDir, fileName)
 
-    console.log('Uploading new file:', fileName)
+    // Create directory if not exists
+    const { mkdir } = await import('fs/promises')
+    await mkdir(uploadDir, { recursive: true })
 
-    // Upload to Supabase Storage (server-side with admin client)
-    const uploadResult = await uploadAvatar(buffer, fileName, file.type)
+    // Save file to public/uploads/avatars
+    await writeFile(filePath, buffer)
+    console.log('File saved:', filePath)
 
-    if (!uploadResult.success) {
-      return NextResponse.json(
-        { success: false, message: uploadResult.error },
-        { status: 400 }
-      )
-    }
+    // Public URL path
+    const publicUrl = `/uploads/avatars/${fileName}`
 
-    console.log('Upload successful, new URL:', uploadResult.url)
-
-    // Update profile with new photo URL
-    if (profile) {
-      profile = await prisma.profile.update({
-        where: { userId: session.userId },
-        data: { fotoProfil: uploadResult.url },
-      })
-    } else {
-      profile = await prisma.profile.create({
-        data: {
-          userId: session.userId,
-          fotoProfil: uploadResult.url,
-        },
-      })
-    }
+    // Upsert profile (update jika ada, create jika tidak ada)
+    const profile = await prisma.profile.upsert({
+      where: { userId: session.userId },
+      update: { fotoProfil: publicUrl },
+      create: {
+        userId: session.userId,
+        fotoProfil: publicUrl,
+      },
+    })
 
     return NextResponse.json({
       success: true,
       message: 'Photo uploaded successfully',
-      url: uploadResult.url,
+      url: publicUrl,
       profile,
     })
   } catch (error) {
