@@ -9,13 +9,9 @@ const DeleteUserSchema = z.object({
 
 export async function DELETE(request: Request) {
   try {
-    // Verify admin session
     const session = await verifySession()
-    if (!session || session.role !== 'ADMIN') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (!session || session.role !== 'OWNER') {
+      return NextResponse.json({ success: false, message: 'Hanya Owner yang bisa menghapus user' }, { status: 401 })
     }
 
     const body = await request.json()

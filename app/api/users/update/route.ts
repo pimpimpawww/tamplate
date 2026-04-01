@@ -8,18 +8,14 @@ const UpdateUserSchema = z.object({
   userId: z.string(),
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
-  role: z.enum(['ADMIN', 'USER']).optional(),
+  role: z.enum(['OWNER', 'ADMIN', 'PENGAWAS']).optional(),
 })
 
 export async function PUT(request: Request) {
   try {
-    // Verify admin session
     const session = await verifySession()
-    if (!session || session.role !== 'ADMIN') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (!session || session.role !== 'OWNER') {
+      return NextResponse.json({ success: false, message: 'Hanya Owner yang bisa mengubah user' }, { status: 401 })
     }
 
     const body = await request.json()
