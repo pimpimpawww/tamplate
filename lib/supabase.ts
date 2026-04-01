@@ -1,19 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Client-side Supabase (for public access)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Lazy client — hanya dibuat jika URL valid
+function isValidUrl(url?: string) {
+  if (!url) return false
+  try { new URL(url); return true } catch { return false }
+}
+
+export const supabase = isValidUrl(supabaseUrl)
+  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  : null
 
 // Server-side Supabase with service role (bypasses RLS)
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-export const supabaseAdmin = supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+
+export const supabaseAdmin = isValidUrl(supabaseUrl) && supabaseServiceKey
+  ? createClient(supabaseUrl!, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
     })
   : null
 

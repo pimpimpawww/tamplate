@@ -41,9 +41,9 @@ export async function POST(request: Request) {
     let conversationMessages = [
       {
         role: 'system',
-        content: `Kamu adalah asisten AI yang membantu dan ramah untuk aplikasi dashboard. Jawab dalam bahasa Indonesia dengan jelas dan informatif.
+        content: `Kamu adalah asisten AI untuk aplikasi Fidyatama Access — sistem POS dan manajemen proyek milik Fidyatama Design & Build Contractor. Jawab dalam bahasa Indonesia dengan jelas dan informatif.
 
-Kamu punya akses ke data sistem melalui function tools. Gunakan tools ini untuk menjawab pertanyaan tentang data user dan statistik.
+Kamu punya akses ke data sistem melalui function tools. Gunakan tools ini untuk menjawab pertanyaan tentang proyek, pelanggan, pembayaran, dan laporan keuangan.
 
 User yang sedang chat: ${session.email} (Role: ${session.role})`,
       },

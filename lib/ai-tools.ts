@@ -60,17 +60,19 @@ export async function executeTool(toolName: string, args: any) {
     }
 
     case 'get_user_stats': {
-      const [total, adminCount, userCount, withProfile] = await Promise.all([
+      const [total, ownerCount, adminCount, pengawasCount, withProfile] = await Promise.all([
         prisma.user.count(),
+        prisma.user.count({ where: { role: 'OWNER' } }),
         prisma.user.count({ where: { role: 'ADMIN' } }),
-        prisma.user.count({ where: { role: 'USER' } }),
+        prisma.user.count({ where: { role: 'PENGAWAS' } }),
         prisma.profile.count(),
       ])
 
       return {
         total,
+        owner: ownerCount,
         admin: adminCount,
-        user: userCount,
+        pengawas: pengawasCount,
         withProfile,
         withoutProfile: total - withProfile,
       }

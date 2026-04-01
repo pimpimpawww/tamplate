@@ -1,6 +1,17 @@
-# Documentation
-README.md
-SETUP.md
+# Docs & fix notes
+*.md
+!README.md
+docs/
 
-# Development files
-.env.example
+# Test files
+/playwright-report
+/test-results
+/tests
+playwright.config.ts
+scripts/
+
+# SQL migration scripts (sudah dihandle prisma db push)
+*.sql
+
+# Bun lockfile (pakai npm)
+bun.lock

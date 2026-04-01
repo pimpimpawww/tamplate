@@ -13,7 +13,7 @@ const LoginSchema = z.object({
 const RegisterSchema = z.object({
   email: z.string().email({ message: 'Format email tidak valid' }),
   password: z.string().min(6, { message: 'Password minimal 6 karakter' }),
-  role: z.enum(['ADMIN', 'USER']).optional(),
+  role: z.enum(['OWNER', 'ADMIN', 'PENGAWAS']).optional(),
   token: z.string().optional(),
 })
 
@@ -69,9 +69,10 @@ export async function loginAction(prevState: any, formData: FormData) {
     }
   } catch (error) {
     console.error('Login action failed:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return { 
       success: false, 
-      message: 'Terjadi kesalahan internal. Silakan coba lagi.', 
+      message: `Error: ${msg}`, 
       errors: null 
     }
   }
@@ -123,7 +124,7 @@ export async function registerAction(prevState: any, formData: FormData) {
       data: {
         email,
         password: passwordHash,
-        role: role || 'ADMIN',
+        role: (role as any) || 'ADMIN',
       },
     })
 

@@ -7,16 +7,16 @@ import { z } from 'zod'
 const CreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(['ADMIN', 'USER']),
+  role: z.enum(['OWNER', 'ADMIN', 'PENGAWAS']),
 })
 
 export async function POST(request: Request) {
   try {
-    // Verify admin session
     const session = await verifySession()
-    if (!session || session.role !== 'ADMIN') {
+    // Hanya OWNER yang bisa buat user
+    if (!session || session.role !== 'OWNER') {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, message: 'Unauthorized. Hanya Owner yang bisa membuat user.' },
         { status: 401 }
       )
     }

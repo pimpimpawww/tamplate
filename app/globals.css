@@ -4,34 +4,71 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Fidyatama Brand Colors */
+    --background: 0 0% 97%;
+    --foreground: 220 15% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 15% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --popover-foreground: 220 15% 12%;
+    --primary: 82 22% 38%;          /* olive/sage green #6b7c4a */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 13% 18%;       /* dark charcoal */
+    --secondary-foreground: 0 0% 90%;
+    --muted: 220 10% 92%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 82 22% 38%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 10% 88%;
+    --input: 220 10% 88%;
+    --ring: 82 22% 38%;
+    --radius: 0.375rem;
+
+    /* Sidebar dark */
+    --sidebar-bg: 220 15% 13%;
+    --sidebar-fg: 0 0% 88%;
+    --sidebar-hover: 82 22% 28%;
+    --sidebar-active: 82 22% 38%;
+    --sidebar-border: 220 12% 20%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+/* Fidyatama sidebar */
+.sidebar-dark {
+  background: hsl(220, 15%, 13%);
+  color: hsl(0, 0%, 88%);
+}
+.sidebar-item {
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-150;
+  color: hsl(0, 0%, 72%);
+}
+.sidebar-item:hover {
+  background: hsl(82, 22%, 22%);
+  color: hsl(82, 35%, 72%);
+}
+.sidebar-item.active {
+  background: hsl(82, 22%, 32%);
+  color: hsl(82, 40%, 82%);
+  font-weight: 600;
+}
+.sidebar-section-label {
+  @apply px-4 py-1.5 text-xs font-semibold uppercase tracking-widest;
+  color: hsl(0, 0%, 40%);
+}
+.sidebar-divider {
+  border-color: hsl(220, 12%, 22%);
+}
+
+/* Print styles */
+@media print {
+  nav, aside, .print\:hidden { display: none !important; }
+  body { background: white !important; }
+  @page { margin: 1cm; size: A4; }
 }

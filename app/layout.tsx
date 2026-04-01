@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Dashboard Template',
-  description: 'Next.js Dashboard Template with Supabase & Prisma',
+  title: 'Fidyatama Access',
+  description: 'Fidyatama Design & Build Contractor — Sistem POS & Manajemen Proyek',
 }
 
 export default function RootLayout({

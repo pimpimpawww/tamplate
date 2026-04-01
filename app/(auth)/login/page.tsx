@@ -2,11 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { loginAction } from '@/app/actions/auth-actions'
+import { FidyatamaLogo } from '@/components/FidyatamaLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,15 +12,11 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    // Check if already logged in
     fetch('/api/auth/check')
       .then(res => res.json())
       .then(data => {
-        if (data.authenticated) {
-          router.push('/dashboard')
-        } else {
-          setChecking(false)
-        }
+        if (data.authenticated) router.push('/dashboard')
+        else setChecking(false)
       })
       .catch(() => setChecking(false))
   }, [router])
@@ -32,77 +25,90 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
-    const formData = new FormData(e.currentTarget)
-    const result = await loginAction(null, formData)
-
-    if (result.success && result.role) {
+    const result = await loginAction(null, new FormData(e.currentTarget))
+    if (result.success) {
       router.push('/dashboard')
       router.refresh()
     } else if (result.message) {
       setError(result.message)
     }
-    
     setLoading(false)
   }
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#1e2328' }}>
+        <div className="w-6 h-6 border-2 border-[#6b7c4a] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center">Dashboard Template</CardTitle>
-          <p className="text-center text-sm text-muted-foreground">
-            Login ke akun Anda
-          </p>
-        </CardHeader>
-        <CardContent>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#1e2328' }}>
+      <div className="w-full max-w-sm">
+
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <FidyatamaLogo variant="light" size="lg" />
+        </div>
+
+        {/* Card */}
+        <div className="rounded-2xl p-8 shadow-2xl" style={{ background: '#262d34', border: '1px solid #2d3339' }}>
+          <div className="mb-6 text-center">
+            <h2 className="text-lg font-bold text-white">Selamat Datang</h2>
+            <p className="text-sm mt-1" style={{ color: '#6b7c4a' }}>Masuk ke Fidyatama Access</p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              <div className="text-sm p-3 rounded-lg" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}>
                 {error}
               </div>
             )}
 
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" style={{ color: '#a8b89a' }}>Email</label>
+              <input
                 name="email"
                 type="email"
                 placeholder="nama@email.com"
                 required
+                className="w-full px-4 py-2.5 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2"
+                style={{ background: '#1e2328', border: '1px solid #3d4449' }}
+                onFocus={e => e.target.style.borderColor = '#6b7c4a'}
+                onBlur={e => e.target.style.borderColor = '#3d4449'}
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Input
-                id="password"
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" style={{ color: '#a8b89a' }}>Password</label>
+              <input
                 name="password"
                 type="password"
                 placeholder="••••••••"
                 required
+                className="w-full px-4 py-2.5 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none"
+                style={{ background: '#1e2328', border: '1px solid #3d4449' }}
+                onFocus={e => e.target.style.borderColor = '#6b7c4a'}
+                onBlur={e => e.target.style.borderColor = '#3d4449'}
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Loading...' : 'Login'}
-            </Button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60 mt-2"
+              style={{ background: '#6b7c4a' }}
+            >
+              {loading ? 'Masuk...' : 'Masuk'}
+            </button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+
+        <p className="text-center text-xs mt-6" style={{ color: '#4a5568' }}>
+          © 2026 Fidyatama. All Rights Reserved
+        </p>
+      </div>
     </div>
   )
 }

@@ -8,6 +8,8 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -35,3 +37,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# docs & fix notes (clutter, tidak perlu di repo)
+*.md
+!README.md
+docs/
+migrate-roles.sql
+setup-storage-rls.sql
+scripts/
