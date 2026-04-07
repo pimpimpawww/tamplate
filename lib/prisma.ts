@@ -1,12 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 
-/**
- * Singleton Pattern untuk Prisma Client
- * Mencegah multiple instances di development hot reload
- */
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    // Disable prepared statements untuk kompatibilitas PgBouncer
+    transactionOptions: {
+      maxWait: 5000,
+      timeout: 10000,
+    },
   })
 }
 
@@ -18,6 +19,9 @@ const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
 
 export default prisma
 
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prismaGlobal = prisma
+}
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prismaGlobal = prisma
 }
