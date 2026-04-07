@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     let conversationMessages = [
       {
         role: 'system',
-        content: `Kamu adalah asisten AI untuk aplikasi Fidyatama Access — sistem POS dan manajemen proyek milik Fidyatama Design & Build Contractor. Jawab dalam bahasa Indonesia dengan jelas dan informatif.
+        content: `Kamu adalah asisten AI untuk aplikasi Fidyatama Access — sistem POS dan manajemen proyek milik Fidyatama Design, Build, and Demolis Contractor. Jawab dalam bahasa Indonesia dengan jelas dan informatif.
 
 Kamu punya akses ke data sistem melalui function tools. Gunakan tools ini untuk menjawab pertanyaan tentang proyek, pelanggan, pembayaran, dan laporan keuangan.
 

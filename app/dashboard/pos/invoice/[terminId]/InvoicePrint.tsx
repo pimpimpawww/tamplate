@@ -89,7 +89,7 @@ export function InvoicePrint({ termin }: { termin: Termin }) {
               </svg>
               <div>
                 <h1 className="text-xl font-black uppercase tracking-widest" style={{ color: '#1e2328', lineHeight: 1 }}>FIDYATAMA</h1>
-                <p className="text-xs uppercase tracking-widest" style={{ color: '#6b7c4a' }}>Design &amp; Build Contractor</p>
+                <p className="text-xs uppercase tracking-widest" style={{ color: '#6b7c4a' }}>Design, Build, and Demolis Contractor</p>
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-1">Jl. Contoh No. 1, Kota Anda · Telp: 0812-XXXX-XXXX</p>

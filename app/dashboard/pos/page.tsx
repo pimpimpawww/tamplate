@@ -77,7 +77,7 @@ export default async function POSDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black uppercase tracking-wide" style={{ color: '#1e2328' }}>Dashboard POS</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6b7c4a' }}>Fidyatama Design &amp; Build Contractor</p>
+        <p className="text-sm mt-0.5" style={{ color: '#6b7c4a' }}>Fidyatama Design, Build, and Demolis Contractor</p>
       </div>
 
       {/* KPI Widgets */}

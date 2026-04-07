@@ -46,7 +46,7 @@ export function FidyatamaLogo({ variant = 'light', size = 'md', className }: Pro
           style={{ fontSize: s.sub, color: subColor, letterSpacing: '0.12em', lineHeight: 1.4 }}
           className="uppercase tracking-widest"
         >
-          Design &amp; Build Contractor
+          Design, Build, and Demolis Contractor
         </span>
       </div>
     </div>
