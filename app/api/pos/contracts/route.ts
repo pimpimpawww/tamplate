@@ -10,7 +10,7 @@ const terminSchema = z.object({
 
 const itemSchema = z.object({
   serviceId: z.string().uuid(),
-  deskripsi: z.string().optional(),
+  deskripsi: z.string().nullable().optional(),
   volume: z.number().positive(),
   hargaSatuan: z.number().positive(),
 })

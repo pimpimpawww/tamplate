@@ -31,7 +31,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
   const [project, setProject] = useState(initial)
   const [tab, setTab] = useState<'overview' | 'contract' | 'termins' | 'expenses'>('overview')
   const [showContractForm, setShowContractForm] = useState(false)
-  const [contractItems, setContractItems] = useState([{ serviceId: '', deskripsi: '', volume: '', hargaSatuan: '' }])
+  const [contractItems, setContractItems] = useState([{ serviceId: '', deskripsi: '', volume: '', hargaSatuan: '', satuanCustom: 'm2' }])
   const [termins, setTermins] = useState([
     { namaTermin: 'DP', persentase: '30' },
     { namaTermin: 'Termin-1', persentase: '40' },
@@ -47,7 +47,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
   const nilaiKontrak = contractItems.reduce((s, i) => s + (Number(i.volume) * Number(i.hargaSatuan) || 0), 0)
   const totalPersen = termins.reduce((s, t) => s + Number(t.persentase || 0), 0)
 
-  function addItem() { setContractItems(p => [...p, { serviceId: '', deskripsi: '', volume: '', hargaSatuan: '' }]) }
+  function addItem() { setContractItems(p => [...p, { serviceId: '', deskripsi: '', volume: '', hargaSatuan: '', satuanCustom: 'm2' }]) }
   function removeItem(i: number) { setContractItems(p => p.filter((_, idx) => idx !== i)) }
   function updateItem(i: number, field: string, val: string) {
     setContractItems(p => p.map((item, idx) => {
@@ -55,7 +55,11 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
       const updated = { ...item, [field]: val }
       if (field === 'serviceId') {
         const svc = catalogs.find(c => c.id === val)
-        if (svc) updated.hargaSatuan = String(svc.hargaDefault)
+        if (svc) {
+          updated.hargaSatuan = String(svc.hargaDefault)
+          updated.volume = svc.satuan === 'PER_PAKET' ? '1' : ''
+          updated.deskripsi = ''
+        }
       }
       return updated
     }))
@@ -65,16 +69,27 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
     e.preventDefault()
     setContractLoading(true)
     setContractError('')
+
+    // Validasi client-side
+    for (const item of contractItems) {
+      if (!item.serviceId) { setContractError('Pilih jasa untuk semua item'); setContractLoading(false); return }
+      if (!Number(item.hargaSatuan) || Number(item.hargaSatuan) <= 0) { setContractError('Harga satuan harus lebih dari 0'); setContractLoading(false); return }
+      if (!Number(item.volume) || Number(item.volume) <= 0) { setContractError('Volume/jumlah harus lebih dari 0'); setContractLoading(false); return }
+    }
     const res = await fetch('/api/pos/contracts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         projectId: project.id, nilaiKontrak, ...contractDates,
-        items: contractItems.map(i => ({ serviceId: i.serviceId, deskripsi: i.deskripsi, volume: Number(i.volume), hargaSatuan: Number(i.hargaSatuan) })),
+        items: contractItems.map(i => ({ serviceId: i.serviceId, deskripsi: i.deskripsi || undefined, volume: Number(i.volume) || 1, hargaSatuan: Number(i.hargaSatuan) })),
         termins: termins.map(t => ({ namaTermin: t.namaTermin, persentase: Number(t.persentase) })),
       }),
     })
     if (res.ok) { router.refresh(); window.location.reload() }
-    else { const err = await res.json(); setContractError(err.error || 'Gagal membuat kontrak') }
+    else {
+      const err = await res.json()
+      const msg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error?.fieldErrors ?? err.error)
+      setContractError(msg || 'Gagal membuat kontrak')
+    }
     setContractLoading(false)
   }
 
@@ -145,7 +160,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
           { key: 'overview', label: 'Ringkasan' },
           { key: 'contract', label: 'Kontrak' },
           { key: 'termins', label: 'Termin' },
-          { key: 'expenses', label: 'Biaya' },
+          { key: 'expenses', label: 'Biaya Operasional' },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors shrink-0 ${tab === t.key ? 'border-[#6b7c4a] text-[#6b7c4a]' : 'border-transparent text-muted-foreground'}`}>
@@ -228,22 +243,103 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                           <label className="text-sm font-medium">Item Jasa</label>
                           <Button type="button" size="sm" variant="outline" onClick={addItem}><Plus className="h-3 w-3 mr-1" />Tambah</Button>
                         </div>
-                        {contractItems.map((item, i) => (
-                          <div key={i} className="p-3 border rounded-lg space-y-2">
-                            <select className="w-full border rounded-md px-2 py-2 text-sm" value={item.serviceId} onChange={e => updateItem(i, 'serviceId', e.target.value)} required>
-                              <option value="">-- Pilih Jasa --</option>
-                              {catalogs.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
-                            </select>
-                            <div className="grid grid-cols-2 gap-2">
-                              <Input placeholder="Volume" type="number" value={item.volume} onChange={e => updateItem(i, 'volume', e.target.value)} required />
-                              <Input placeholder="Harga Satuan" type="number" value={item.hargaSatuan} onChange={e => updateItem(i, 'hargaSatuan', e.target.value)} required />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-semibold" style={{ color: '#6b7c4a' }}>{formatRupiah(Number(item.volume) * Number(item.hargaSatuan) || 0)}</span>
+                        {contractItems.map((item, i) => {
+                          const svc = catalogs.find(c => c.id === item.serviceId)
+                          const satuan = svc?.satuan ?? ''
+                          const subtotal = Number(item.volume) * Number(item.hargaSatuan) || 0
+
+                          return (
+                          <div key={i} className="p-3 border rounded-lg space-y-3">
+                            {/* Dropdown pilih jasa */}
+                            <div className="flex items-center gap-2">
+                              <select className="flex-1 border rounded-md px-2 py-2 text-sm" value={item.serviceId} onChange={e => updateItem(i, 'serviceId', e.target.value)} required>
+                                <option value="">-- Pilih Jasa --</option>
+                                {catalogs.map(c => <option key={c.id} value={c.id}>{c.nama}</option>)}
+                              </select>
                               {contractItems.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => removeItem(i)}><Trash2 className="h-3 w-3 text-red-500" /></Button>}
                             </div>
+
+                            {/* Form dinamis berdasarkan satuan */}
+                            {satuan === 'PER_M2' && (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="col-span-2 space-y-1">
+                                    <label className="text-xs text-muted-foreground">Volume</label>
+                                    <Input placeholder="Contoh: 120" type="number" value={item.volume} onChange={e => updateItem(i, 'volume', e.target.value)} required />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Satuan</label>
+                                    <select className="w-full border rounded-md px-2 py-2 text-sm" value={item.satuanCustom} onChange={e => updateItem(i, 'satuanCustom', e.target.value)}>
+                                      <option value="m2">m²</option>
+                                      <option value="m1">m¹</option>
+                                      <option value="unit">unit</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-muted-foreground">Harga per {item.satuanCustom} (Rp)</label>
+                                  <Input placeholder="Harga satuan" type="number" value={item.hargaSatuan} onChange={e => updateItem(i, 'hargaSatuan', e.target.value)} required />
+                                </div>
+                              </div>
+                            )}
+
+                            {satuan === 'PER_TITIK' && (
+                              <div className="space-y-2">
+                                <div className="space-y-1">
+                                  <label className="text-xs text-muted-foreground">Jumlah Titik</label>
+                                  <Input placeholder="Contoh: 5" type="number" value={item.volume} onChange={e => updateItem(i, 'volume', e.target.value)} required />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-muted-foreground">Harga per Titik (Rp)</label>
+                                  <Input placeholder="Harga per titik" type="number" value={item.hargaSatuan} onChange={e => updateItem(i, 'hargaSatuan', e.target.value)} required />
+                                </div>
+                              </div>
+                            )}
+
+                            {satuan === 'PER_PAKET' && (
+                              <div className="space-y-2">
+                                <div className="space-y-1">
+                                  <label className="text-xs text-muted-foreground">Paket / Keterangan</label>
+                                  <select className="w-full border rounded-md px-2 py-2 text-sm" value={item.deskripsi} onChange={e => updateItem(i, 'deskripsi', e.target.value)}>
+                                    <option value="">-- Pilih Paket --</option>
+                                    <option value="Lite">Lite</option>
+                                    <option value="Standard">Standard</option>
+                                    <option value="Premium">Premium</option>
+                                    <option value="Custom">Custom</option>
+                                  </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Luas Bangunan (m²) — opsional</label>
+                                    <Input placeholder="Contoh: 72" type="number" value={item.volume === '1' ? '' : item.volume} onChange={e => updateItem(i, 'volume', e.target.value || '1')} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Harga Paket (Rp)</label>
+                                    <Input placeholder="Harga paket" type="number" value={item.hargaSatuan} onChange={e => updateItem(i, 'hargaSatuan', e.target.value)} required />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Fallback: jasa belum dipilih atau satuan tidak dikenal */}
+                            {!satuan && (
+                              <p className="text-xs text-muted-foreground italic">Pilih jasa terlebih dahulu</p>
+                            )}
+
+                            {/* Subtotal */}
+                            {satuan && (
+                              <div className="flex items-center justify-between pt-1 border-t">
+                                <span className="text-xs text-muted-foreground">
+                                  {satuan === 'PER_M2' && `${item.volume || 0} ${item.satuanCustom} × ${formatRupiah(item.hargaSatuan || 0)}`}
+                                  {satuan === 'PER_TITIK' && `${item.volume || 0} titik × ${formatRupiah(item.hargaSatuan || 0)}`}
+                                  {satuan === 'PER_PAKET' && (item.deskripsi || 'Paket')}
+                                </span>
+                                <span className="text-sm font-semibold" style={{ color: '#6b7c4a' }}>{formatRupiah(subtotal)}</span>
+                              </div>
+                            )}
                           </div>
-                        ))}
+                          )
+                        })}
                         <p className="text-right font-bold text-sm">Total: {formatRupiah(nilaiKontrak)}</p>
                       </div>
 

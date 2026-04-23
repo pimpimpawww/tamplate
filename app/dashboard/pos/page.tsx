@@ -82,75 +82,109 @@ export default async function POSDashboardPage() {
 
       {/* KPI Widgets */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Proyek Aktif — semua role bisa lihat */}
-        <Card className="border-0 shadow-sm" style={{ borderLeft: '4px solid #6b7c4a', background: '#1e2328' }}>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs" style={{ color: '#a8b89a' }}>Proyek Aktif</p>
-                <p className="text-2xl font-bold text-white">{proyekAktif}</p>
+        {/* Proyek Aktif */}
+        <Link href="/dashboard/pos/projects?status=AKTIF">
+          <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" style={{ borderLeft: '4px solid #6b7c4a', background: '#1e2328' }}>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs" style={{ color: '#a8b89a' }}>Proyek Aktif</p>
+                  <p className="text-2xl font-bold text-white">{proyekAktif}</p>
+                </div>
+                <FileText className="h-8 w-8 opacity-20 text-white" />
               </div>
-              <FileText className="h-8 w-8 opacity-20 text-white" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        {/* Piutang — hanya OWNER */}
-        <Card className="border-0 shadow-sm" style={{ borderLeft: `4px solid ${canViewFinancials ? '#d97706' : '#4a5568'}`, background: '#1e2328' }}>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs" style={{ color: '#a8b89a' }}>Total Piutang</p>
-                {canViewFinancials ? (
-                  <>
+        {/* Piutang */}
+        {canViewFinancials ? (
+          <Link href="/dashboard/pos/rekap/piutang">
+            <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" style={{ borderLeft: '4px solid #d97706', background: '#1e2328' }}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs" style={{ color: '#a8b89a' }}>Total Piutang</p>
                     <p className="text-base font-bold" style={{ color: '#fbbf24' }}>{formatRupiah(totalPiutang)}</p>
                     <p className="text-xs" style={{ color: '#6b7c4a' }}>{piutangData._count} termin menunggu</p>
-                  </>
-                ) : (
+                  </div>
+                  <AlertTriangle className="h-8 w-8 opacity-20 text-white" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="border-0 shadow-sm" style={{ borderLeft: '4px solid #4a5568', background: '#1e2328' }}>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs" style={{ color: '#a8b89a' }}>Total Piutang</p>
                   <div className="flex items-center gap-1 mt-1"><Lock className="h-3 w-3" style={{ color: '#4a5568' }} /><span className="text-xs" style={{ color: '#4a5568' }}>Hanya Owner</span></div>
-                )}
+                </div>
+                <AlertTriangle className="h-8 w-8 opacity-20 text-white" />
               </div>
-              <AlertTriangle className="h-8 w-8 opacity-20 text-white" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Total Lunas — hanya OWNER */}
-        <Card className="border-0 shadow-sm" style={{ borderLeft: `4px solid ${canViewFinancials ? '#22c55e' : '#4a5568'}`, background: '#1e2328' }}>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs" style={{ color: '#a8b89a' }}>Total Lunas</p>
-                {canViewFinancials ? (
-                  <p className="text-base font-bold" style={{ color: '#86efac' }}>{formatRupiah(totalLunas)}</p>
-                ) : (
+        {/* Total Lunas */}
+        {canViewFinancials ? (
+          <Link href="/dashboard/pos/rekap/lunas">
+            <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" style={{ borderLeft: '4px solid #22c55e', background: '#1e2328' }}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs" style={{ color: '#a8b89a' }}>Total Lunas</p>
+                    <p className="text-base font-bold" style={{ color: '#86efac' }}>{formatRupiah(totalLunas)}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 opacity-20 text-white" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="border-0 shadow-sm" style={{ borderLeft: '4px solid #4a5568', background: '#1e2328' }}>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs" style={{ color: '#a8b89a' }}>Total Lunas</p>
                   <div className="flex items-center gap-1 mt-1"><Lock className="h-3 w-3" style={{ color: '#4a5568' }} /><span className="text-xs" style={{ color: '#4a5568' }}>Hanya Owner</span></div>
-                )}
+                </div>
+                <CheckCircle className="h-8 w-8 opacity-20 text-white" />
               </div>
-              <CheckCircle className="h-8 w-8 opacity-20 text-white" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Laba Kotor — hanya OWNER */}
-        <Card className="border-0 shadow-sm" style={{ borderLeft: `4px solid ${canViewFinancials ? (labaKotor >= 0 ? '#6b7c4a' : '#ef4444') : '#4a5568'}`, background: '#1e2328' }}>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs" style={{ color: '#a8b89a' }}>Laba Kotor</p>
-                {canViewFinancials ? (
-                  <>
+        {/* Laba Kotor */}
+        {canViewFinancials ? (
+          <Link href="/dashboard/pos/rekap/laba-rugi">
+            <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all" style={{ borderLeft: `4px solid ${labaKotor >= 0 ? '#6b7c4a' : '#ef4444'}`, background: '#1e2328' }}>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs" style={{ color: '#a8b89a' }}>Laba Kotor</p>
                     <p className="text-base font-bold" style={{ color: labaKotor >= 0 ? '#a8b89a' : '#f87171' }}>{formatRupiah(labaKotor)}</p>
                     <p className="text-xs" style={{ color: '#4a5568' }}>Biaya: {formatRupiah(totalBiaya)}</p>
-                  </>
-                ) : (
+                  </div>
+                  <TrendingUp className="h-8 w-8 opacity-20 text-white" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ) : (
+          <Card className="border-0 shadow-sm" style={{ borderLeft: '4px solid #4a5568', background: '#1e2328' }}>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs" style={{ color: '#a8b89a' }}>Laba Kotor</p>
                   <div className="flex items-center gap-1 mt-1"><Lock className="h-3 w-3" style={{ color: '#4a5568' }} /><span className="text-xs" style={{ color: '#4a5568' }}>Hanya Owner</span></div>
-                )}
+                </div>
+                <TrendingUp className="h-8 w-8 opacity-20 text-white" />
               </div>
-              <TrendingUp className="h-8 w-8 opacity-20 text-white" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Chart — hanya OWNER */}

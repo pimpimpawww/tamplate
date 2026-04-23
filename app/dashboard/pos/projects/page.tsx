@@ -19,12 +19,15 @@ function formatRupiah(n: number | string) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(n))
 }
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const session = await verifySession()
   if (!session) redirect('/login')
 
+  const { status } = await searchParams
+
   const projects = await prisma.project.findMany({
     orderBy: { createdAt: 'desc' },
+    where: status ? { status: status as any } : undefined,
     include: {
       customer: true,
       contract: { include: { termins: true } },
