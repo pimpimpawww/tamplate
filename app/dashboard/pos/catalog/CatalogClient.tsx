@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Package } from 'lucide-react'
+import { Plus, Package, Trash2 } from 'lucide-react'
 
 type Catalog = {
   id: string; nama: string; deskripsi: string | null
@@ -23,6 +23,13 @@ export function CatalogClient({ initialData }: { initialData: Catalog[] }) {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ nama: '', deskripsi: '', satuan: 'PER_M2', hargaDefault: '' })
+
+  async function handleDelete(id: string) {
+    if (!confirm('Hapus katalog jasa ini?')) return
+    const res = await fetch(`/api/pos/catalog/${id}`, { method: 'DELETE' })
+    if (res.ok) setCatalogs(prev => prev.filter(c => c.id !== id))
+    else alert('Gagal menghapus')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -96,9 +103,14 @@ export function CatalogClient({ initialData }: { initialData: Catalog[] }) {
                   <Package className="h-4 w-4 text-muted-foreground" />
                   <span className="font-semibold">{c.nama}</span>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SATUAN_COLOR[c.satuan]}`}>
-                  {SATUAN_LABEL[c.satuan]}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SATUAN_COLOR[c.satuan]}`}>
+                    {SATUAN_LABEL[c.satuan]}
+                  </span>
+                  <button onClick={() => handleDelete(c.id)} className="text-red-400 hover:text-red-600 transition-colors" title="Hapus">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               {c.deskripsi && <p className="text-xs text-muted-foreground">{c.deskripsi}</p>}
               <p className="text-lg font-bold text-green-700">{formatRupiah(c.hargaDefault)}</p>

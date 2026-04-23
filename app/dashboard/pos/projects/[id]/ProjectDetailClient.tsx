@@ -108,6 +108,13 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
     setExpenseLoading(false)
   }
 
+  async function handleDeleteExpense(id: string) {
+    if (!confirm('Hapus biaya ini?')) return
+    const res = await fetch(`/api/pos/expenses/${id}`, { method: 'DELETE' })
+    if (res.ok) setProject(p => ({ ...p, contract: p.contract ? { ...p.contract, expenses: p.contract.expenses.filter(e => e.id !== id) } : null }))
+    else alert('Gagal menghapus')
+  }
+
   const totalExpenses = project.contract?.expenses.reduce((s, e) => s + Number(e.jumlah), 0) ?? 0
   const totalLunas = project.contract?.termins.filter(t => t.status === 'LUNAS').reduce((s, t) => s + Number(t.jumlah), 0) ?? 0
   const profit = totalLunas - totalExpenses
@@ -349,7 +356,12 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                     <span className="text-sm">{exp.deskripsi}</span>
                     <p className="text-xs text-muted-foreground mt-0.5">{new Date(exp.tanggal).toLocaleDateString('id-ID')}</p>
                   </div>
-                  <span className="font-semibold text-red-600 text-sm shrink-0">{formatRupiah(exp.jumlah)}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-semibold text-red-600 text-sm">{formatRupiah(exp.jumlah)}</span>
+                    <button onClick={() => handleDeleteExpense(exp.id)} className="text-red-400 hover:text-red-600 transition-colors" title="Hapus biaya">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
               {project.contract.expenses.length === 0 && <p className="text-center py-8 text-muted-foreground text-sm">Belum ada biaya operasional.</p>}

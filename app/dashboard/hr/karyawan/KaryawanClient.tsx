@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Plus, User, Phone, Briefcase, X, Search } from 'lucide-react'
+import { Plus, User, Phone, Briefcase, X, Search, Trash2 } from 'lucide-react'
 
 type Karyawan = {
   id: string; nama: string; nik: string | null; jabatan: string
@@ -40,6 +40,15 @@ export function KaryawanClient({ initialData }: { initialData: Karyawan[] }) {
     (k.noHp ?? '').includes(search) ||
     JABATAN_LABEL[k.jabatan]?.toLowerCase().includes(search.toLowerCase())
   )
+
+  async function handleDelete(id: string, nama: string, e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm(`Hapus karyawan "${nama}"?`)) return
+    const res = await fetch(`/api/hr/karyawan/${id}`, { method: 'DELETE' })
+    if (res.ok) setList(prev => prev.filter(k => k.id !== id))
+    else alert('Gagal menghapus karyawan')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -114,7 +123,12 @@ export function KaryawanClient({ initialData }: { initialData: Karyawan[] }) {
 
                 <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
                   <span><Briefcase className="h-3 w-3 inline mr-1" />{k._count.penugasan} proyek</span>
-                  {k.gajiPokok && <span className="font-medium" style={{ color: '#6b7c4a' }}>{formatRupiah(k.gajiPokok)}/bln</span>}
+                  <div className="flex items-center gap-2">
+                    {k.gajiPokok && <span className="font-medium" style={{ color: '#6b7c4a' }}>{formatRupiah(k.gajiPokok)}/bln</span>}
+                    <button onClick={(e) => handleDelete(k.id, k.nama, e)} className="text-red-400 hover:text-red-600 transition-colors" title="Hapus karyawan">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

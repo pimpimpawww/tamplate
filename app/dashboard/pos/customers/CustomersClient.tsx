@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, User, Phone, MapPin } from 'lucide-react'
+import { Plus, User, Phone, MapPin, Trash2 } from 'lucide-react'
 
 type Customer = {
   id: string; nama: string; noWa: string
@@ -17,6 +17,14 @@ export function CustomersClient({ initialData }: { initialData: Customer[] }) {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [form, setForm] = useState({ nama: '', noWa: '', alamat: '', email: '' })
+
+  async function handleDelete(id: string, nama: string) {
+    if (!confirm(`Hapus pelanggan "${nama}"?`)) return
+    const res = await fetch(`/api/pos/customers/${id}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (res.ok) setCustomers(prev => prev.filter(c => c.id !== id))
+    else alert(data.error ?? 'Gagal menghapus')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -88,9 +96,16 @@ export function CustomersClient({ initialData }: { initialData: Customer[] }) {
         {filtered.map(c => (
           <Card key={c.id}>
             <CardContent className="pt-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="font-semibold">{c.nama}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{c.nama}</span>
+                </div>
+                {c._count.projects === 0 && (
+                  <button onClick={() => handleDelete(c.id, c.nama)} className="text-red-400 hover:text-red-600 transition-colors" title="Hapus pelanggan">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Phone className="h-3 w-3" />

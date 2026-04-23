@@ -40,3 +40,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   })
   return NextResponse.json(project)
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await verifySession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+
+  const project = await prisma.project.findUnique({ where: { id } })
+  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (project.status !== 'DRAFT') return NextResponse.json({ error: 'Hanya proyek DRAFT yang bisa dihapus' }, { status: 400 })
+
+  await prisma.project.delete({ where: { id } })
+  return NextResponse.json({ success: true })
+}

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Plus, FileText, MapPin } from 'lucide-react'
+import DeleteProjectButton from './DeleteProjectButton'
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
@@ -49,7 +50,8 @@ export default async function ProjectsPage() {
           const pct = total > 0 ? Math.round((lunas / total) * 100) : 0
 
           return (
-            <Link key={p.id} href={`/dashboard/pos/projects/${p.id}`}>
+            <div key={p.id} className="relative group">
+            <Link href={`/dashboard/pos/projects/${p.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="pt-4">
                   <div className="flex items-start justify-between gap-4">
@@ -64,23 +66,25 @@ export default async function ProjectsPage() {
                         <MapPin className="h-3 w-3" />{p.alamatProyek}
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="flex flex-col items-end gap-2 shrink-0">
                       {p.contract ? (
                         <>
-                          <p className="font-bold text-green-700">{formatRupiah(Number(p.contract.nilaiKontrak))}</p>
+                          <p className="font-bold" style={{ color: '#6b7c4a' }}>{formatRupiah(Number(p.contract.nilaiKontrak))}</p>
                           <p className="text-xs text-muted-foreground">{pct}% lunas</p>
-                          <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1">
-                            <div className="h-1.5 bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
+                          <div className="w-24 h-1.5 bg-gray-200 rounded-full">
+                            <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: '#6b7c4a' }} />
                           </div>
                         </>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">Belum ada kontrak</span>
                       )}
+                      {p.status === 'DRAFT' && <DeleteProjectButton id={p.id} />}
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </Link>
+            </div>
           )
         })}
         {projects.length === 0 && (
