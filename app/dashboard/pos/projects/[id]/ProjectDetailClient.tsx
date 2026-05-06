@@ -33,15 +33,15 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
   const [showContractForm, setShowContractForm] = useState(false)
   const [contractItems, setContractItems] = useState([{ serviceId: '', deskripsi: '', volume: '', hargaSatuan: '', satuanCustom: 'm2' }])
   const [termins, setTermins] = useState([
-    { namaTermin: 'DP', persentase: '30' },
-    { namaTermin: 'Termin-1', persentase: '40' },
-    { namaTermin: 'Pelunasan', persentase: '30' },
+    { namaTermin: 'DP', persentase: '30', nominalInput: '' },
+    { namaTermin: 'Termin-1', persentase: '40', nominalInput: '' },
+    { namaTermin: 'Pelunasan', persentase: '30', nominalInput: '' },
   ])
   const [contractDates, setContractDates] = useState({ tanggalMulai: '', tanggalSelesai: '', catatan: '' })
   const [contractLoading, setContractLoading] = useState(false)
   const [contractError, setContractError] = useState('')
   const [showExpenseModal, setShowExpenseModal] = useState(false)
-  const [expenseForm, setExpenseForm] = useState({ kategori: 'MATERIAL', deskripsi: '', jumlah: '', tanggal: '' })
+  const [expenseForm, setExpenseForm] = useState({ kategori: 'MATERIAL', deskripsi: '', jumlah: '', tanggal: '', jenisMaterial: '', qty: '', hargaSatuan: '', satuanMaterial: 'sak' })
   const [expenseLoading, setExpenseLoading] = useState(false)
 
   const nilaiKontrak = contractItems.reduce((s, i) => s + (Number(i.volume) * Number(i.hargaSatuan) || 0), 0)
@@ -110,14 +110,23 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
     e.preventDefault()
     if (!project.contract) return
     setExpenseLoading(true)
+
+    // Hitung jumlah: kalau material pakai qty × harga, kalau lain pakai jumlah langsung
+    let jumlahFinal = Number(expenseForm.jumlah)
+    let deskripsiFinal = expenseForm.deskripsi
+    if (expenseForm.kategori === 'MATERIAL' && expenseForm.jenisMaterial) {
+      jumlahFinal = Number(expenseForm.qty) * Number(expenseForm.hargaSatuan)
+      deskripsiFinal = `${expenseForm.jenisMaterial} ${expenseForm.qty} ${expenseForm.satuanMaterial} × ${formatRupiah(expenseForm.hargaSatuan)}`
+    }
+
     const res = await fetch('/api/pos/expenses', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...expenseForm, contractId: project.contract.id, jumlah: Number(expenseForm.jumlah) }),
+      body: JSON.stringify({ ...expenseForm, deskripsi: deskripsiFinal, contractId: project.contract.id, jumlah: jumlahFinal }),
     })
     if (res.ok) {
       const data = await res.json()
       setProject(p => ({ ...p, contract: p.contract ? { ...p.contract, expenses: [data, ...p.contract.expenses] } : null }))
-      setExpenseForm({ kategori: 'MATERIAL', deskripsi: '', jumlah: '', tanggal: '' })
+      setExpenseForm({ kategori: 'MATERIAL', deskripsi: '', jumlah: '', tanggal: '', jenisMaterial: '', qty: '', hargaSatuan: '', satuanMaterial: 'sak' })
       setShowExpenseModal(false)
     }
     setExpenseLoading(false)
@@ -351,15 +360,53 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                             {totalPersen}% {Math.abs(totalPersen - 100) > 0.01 ? '≠ 100%' : '✓'}
                           </span>
                         </div>
-                        {termins.map((t, i) => (
-                          <div key={i} className="flex gap-2 items-center">
-                            <Input className="flex-1" placeholder="Nama Termin" value={t.namaTermin} onChange={e => setTermins(p => p.map((x, idx) => idx === i ? { ...x, namaTermin: e.target.value } : x))} required />
-                            <Input className="w-16" placeholder="%" type="number" value={t.persentase} onChange={e => setTermins(p => p.map((x, idx) => idx === i ? { ...x, persentase: e.target.value } : x))} required />
-                            <span className="text-xs text-right w-20 shrink-0">{formatRupiah((nilaiKontrak * Number(t.persentase)) / 100)}</span>
-                            {termins.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => setTermins(p => p.filter((_, idx) => idx !== i))}><Trash2 className="h-3 w-3 text-red-500" /></Button>}
+                        {termins.map((t, i) => {
+                          const nominalDariPersen = nilaiKontrak > 0 ? Math.round((nilaiKontrak * Number(t.persentase)) / 100) : 0
+                          // Tampilkan nominalInput kalau user lagi ngetik, kalau tidak tampilkan hasil kalkulasi
+                          const nominalDisplay = t.nominalInput !== '' ? t.nominalInput : (nominalDariPersen > 0 ? String(nominalDariPersen) : '')
+                          return (
+                          <div key={i} className="space-y-1.5">
+                            <div className="flex gap-2 items-center">
+                              <Input className="flex-1" placeholder="Nama Termin" value={t.namaTermin} onChange={e => setTermins(p => p.map((x, idx) => idx === i ? { ...x, namaTermin: e.target.value } : x))} required />
+                              {termins.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => setTermins(p => p.filter((_, idx) => idx !== i))}><Trash2 className="h-3 w-3 text-red-500" /></Button>}
+                            </div>
+                            <div className="flex gap-2 items-center">
+                              {/* Input nominal → hitung persentase */}
+                              <div className="flex-1 relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+                                <Input
+                                  className="pl-8 text-sm"
+                                  placeholder="Nominal"
+                                  type="number"
+                                  value={nominalDisplay}
+                                  onChange={e => {
+                                    const val = e.target.value
+                                    const pct = nilaiKontrak > 0 && val ? ((Number(val) / nilaiKontrak) * 100).toFixed(2) : ''
+                                    setTermins(p => p.map((x, idx) => idx === i ? { ...x, nominalInput: val, persentase: pct } : x))
+                                  }}
+                                  onBlur={() => {
+                                    // Saat blur, simpan persentase final — nominalInput tetap ada supaya angka tidak berubah
+                                    // Tidak perlu clear, biarkan user lihat angka yang dia ketik
+                                  }}
+                                />
+                              </div>
+                              {/* Input persentase → hitung nominal */}
+                              <div className="w-20 relative">
+                                <Input
+                                  className="pr-6 text-sm"
+                                  placeholder="%"
+                                  type="number"
+                                  value={t.persentase}
+                                  onChange={e => setTermins(p => p.map((x, idx) => idx === i ? { ...x, persentase: e.target.value, nominalInput: '' } : x))}
+                                  required
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                              </div>
+                            </div>
                           </div>
-                        ))}
-                        <Button type="button" size="sm" variant="outline" onClick={() => setTermins(p => [...p, { namaTermin: '', persentase: '' }])}>
+                          )
+                        })}
+                        <Button type="button" size="sm" variant="outline" onClick={() => setTermins(p => [...p, { namaTermin: '', persentase: '', nominalInput: '' }])}>
                           <Plus className="h-3 w-3 mr-1" /> Tambah Termin
                         </Button>
                       </div>
@@ -478,7 +525,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-sm font-medium">Kategori</label>
-                  <select className="w-full border rounded-md px-3 py-2 text-sm" value={expenseForm.kategori} onChange={e => setExpenseForm(p => ({ ...p, kategori: e.target.value }))}>
+                  <select className="w-full border rounded-md px-3 py-2 text-sm" value={expenseForm.kategori} onChange={e => setExpenseForm(p => ({ ...p, kategori: e.target.value, jenisMaterial: '', qty: '', hargaSatuan: '', deskripsi: '' }))}>
                     <option value="MATERIAL">Material</option>
                     <option value="TUKANG">Tukang / Upah</option>
                     <option value="OPERASIONAL">Sewa Alat</option>
@@ -490,14 +537,100 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                   <Input type="date" value={expenseForm.tanggal} onChange={e => setExpenseForm(p => ({ ...p, tanggal: e.target.value }))} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Deskripsi *</label>
-                <Input value={expenseForm.deskripsi} onChange={e => setExpenseForm(p => ({ ...p, deskripsi: e.target.value }))} placeholder="Beli semen 50 sak..." required />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Jumlah (Rp) *</label>
-                <Input type="number" inputMode="numeric" value={expenseForm.jumlah} onChange={e => setExpenseForm(p => ({ ...p, jumlah: e.target.value }))} placeholder="1500000" required />
-              </div>
+
+              {/* Form dinamis untuk Material */}
+              {expenseForm.kategori === 'MATERIAL' ? (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Jenis Material *</label>
+                    <select className="w-full border rounded-md px-3 py-2 text-sm" value={expenseForm.jenisMaterial} onChange={e => setExpenseForm(p => ({ ...p, jenisMaterial: e.target.value }))} required>
+                      <option value="">-- Pilih Material --</option>
+                      <optgroup label="Struktur">
+                        <option value="Semen">Semen</option>
+                        <option value="Besi Beton">Besi Beton</option>
+                        <option value="Besi Hollow">Besi Hollow</option>
+                        <option value="Baja Ringan">Baja Ringan</option>
+                      </optgroup>
+                      <optgroup label="Pasangan">
+                        <option value="Batu Bata">Batu Bata</option>
+                        <option value="Batako">Batako</option>
+                        <option value="Hebel/AAC">Hebel/AAC</option>
+                        <option value="Pasir">Pasir</option>
+                        <option value="Batu Split">Batu Split</option>
+                        <option value="Kerikil">Kerikil</option>
+                      </optgroup>
+                      <optgroup label="Finishing">
+                        <option value="Cat Tembok">Cat Tembok</option>
+                        <option value="Cat Kayu">Cat Kayu</option>
+                        <option value="Keramik">Keramik</option>
+                        <option value="Granit">Granit</option>
+                        <option value="Plester/Acian">Plester/Acian</option>
+                      </optgroup>
+                      <optgroup label="Kayu & Atap">
+                        <option value="Kayu Balok">Kayu Balok</option>
+                        <option value="Kayu Papan">Kayu Papan</option>
+                        <option value="Triplek">Triplek</option>
+                        <option value="Genteng">Genteng</option>
+                        <option value="Spandek">Spandek</option>
+                        <option value="Asbes">Asbes</option>
+                      </optgroup>
+                      <optgroup label="Sanitasi & Listrik">
+                        <option value="Pipa PVC">Pipa PVC</option>
+                        <option value="Kabel Listrik">Kabel Listrik</option>
+                        <option value="Saklar/Stop Kontak">Saklar/Stop Kontak</option>
+                      </optgroup>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Qty *</label>
+                      <Input type="number" placeholder="5" value={expenseForm.qty} onChange={e => setExpenseForm(p => ({ ...p, qty: e.target.value }))} required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Satuan</label>
+                      <select className="w-full border rounded-md px-3 py-2 text-sm" value={expenseForm.satuanMaterial} onChange={e => setExpenseForm(p => ({ ...p, satuanMaterial: e.target.value }))}>
+                        <option value="sak">sak</option>
+                        <option value="kg">kg</option>
+                        <option value="ton">ton</option>
+                        <option value="m²">m²</option>
+                        <option value="m³">m³</option>
+                        <option value="m¹">m¹</option>
+                        <option value="batang">batang</option>
+                        <option value="lembar">lembar</option>
+                        <option value="buah">buah</option>
+                        <option value="unit">unit</option>
+                        <option value="liter">liter</option>
+                        <option value="galon">galon</option>
+                        <option value="roll">roll</option>
+                        <option value="dus">dus</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Harga/satuan *</label>
+                      <Input type="number" placeholder="50000" value={expenseForm.hargaSatuan} onChange={e => setExpenseForm(p => ({ ...p, hargaSatuan: e.target.value }))} required />
+                    </div>
+                  </div>
+                  {/* Preview total */}
+                  {expenseForm.qty && expenseForm.hargaSatuan && (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-orange-50 border border-orange-100">
+                      <span className="text-xs text-muted-foreground">{expenseForm.qty} {expenseForm.satuanMaterial} × {formatRupiah(expenseForm.hargaSatuan)}</span>
+                      <span className="font-semibold text-sm" style={{ color: '#d97706' }}>{formatRupiah(Number(expenseForm.qty) * Number(expenseForm.hargaSatuan))}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Deskripsi *</label>
+                    <Input value={expenseForm.deskripsi} onChange={e => setExpenseForm(p => ({ ...p, deskripsi: e.target.value }))} placeholder={expenseForm.kategori === 'TUKANG' ? 'Upah tukang bata 3 hari...' : 'Sewa molen 2 hari...'} required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Jumlah (Rp) *</label>
+                    <Input type="number" inputMode="numeric" value={expenseForm.jumlah} onChange={e => setExpenseForm(p => ({ ...p, jumlah: e.target.value }))} placeholder="1500000" required />
+                  </div>
+                </>
+              )}
               <div className="flex gap-2 pb-1">
                 <button type="submit" disabled={expenseLoading} className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60" style={{ background: '#6b7c4a' }}>
                   {expenseLoading ? 'Menyimpan...' : 'Simpan'}
