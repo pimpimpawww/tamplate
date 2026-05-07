@@ -1,23 +1,30 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Plus, Trash2, Phone, MapPin, CheckCircle, Clock, AlertCircle, Printer, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Phone, MapPin, CheckCircle, Clock, AlertCircle, Printer, X, Share2 } from 'lucide-react'
 import Link from 'next/link'
 
 type ServiceCatalog = { id: string; nama: string; satuan: string; hargaDefault: string }
 type ContractItem = { id: string; deskripsi: string | null; volume: string; hargaSatuan: string; subtotal: string; service: ServiceCatalog }
-type PaymentTerm = { id: string; namaTermin: string; persentase: string; jumlah: string; status: string; tanggalTagih: string | null; tanggalBayar: string | null; catatan: string | null }
+type PaymentTerm = { id: string; namaTermin: string; persentase: string; jumlah: string; status: string; tanggalJatuhTempo: string | null; tanggalTagih: string | null; tanggalBayar: string | null; catatan: string | null; reminderSent: boolean }
 type Expense = { id: string; kategori: string; deskripsi: string; jumlah: string; tanggal: string }
 type Contract = { id: string; nilaiKontrak: string; tanggalMulai: string | null; tanggalSelesai: string | null; catatan: string | null; items: ContractItem[]; termins: PaymentTerm[]; expenses: Expense[] }
-type Project = { id: string; projectId: string; namaProyek: string; alamatProyek: string; status: string; catatan: string | null; customer: { nama: string; noWa: string; alamat: string | null }; contract: Contract | null; attachments: any[] }
+type Project = { id: string; projectId: string; namaProyek: string; alamatProyek: string; status: string; progress: number; publicToken: string | null; catatan: string | null; customer: { nama: string; noWa: string; alamat: string | null }; contract: Contract | null; attachments: { id: string; namaFile: string; url: string; tipe: string; ukuran: number; kategori: string; createdAt: string }[] }
 
 const TERMIN_STATUS_CONFIG = {
   BELUM_DITAGIH: { label: 'Belum Ditagih', icon: AlertCircle, color: 'text-gray-500', bg: 'bg-gray-100' },
   MENUNGGU_PEMBAYARAN: { label: 'Menunggu Bayar', icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100' },
   LUNAS: { label: 'Lunas', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' },
+}
+
+const STATUS_COLOR: Record<string, { bg: string; text: string; label: string }> = {
+  DRAFT:   { bg: 'bg-gray-100',   text: 'text-gray-700',  label: 'Draft' },
+  AKTIF:   { bg: 'bg-blue-100',   text: 'text-blue-700',  label: 'Aktif' },
+  SELESAI: { bg: 'bg-green-100',  text: 'text-green-700', label: 'Selesai' },
+  BATAL:   { bg: 'bg-red-100',    text: 'text-red-700',   label: 'Batal' },
 }
 
 const SATUAN_LABEL: Record<string, string> = { PER_M2: 'm²', PER_PAKET: 'paket', PER_TITIK: 'titik' }
@@ -29,13 +36,13 @@ function formatRupiah(n: number | string) {
 export function ProjectDetailClient({ project: initial, catalogs }: { project: Project; catalogs: ServiceCatalog[] }) {
   const router = useRouter()
   const [project, setProject] = useState(initial)
-  const [tab, setTab] = useState<'overview' | 'contract' | 'termins' | 'expenses'>('overview')
+  const [tab, setTab] = useState<'overview' | 'contract' | 'termins' | 'expenses' | 'dokumen'>('overview')
   const [showContractForm, setShowContractForm] = useState(false)
   const [contractItems, setContractItems] = useState([{ serviceId: '', deskripsi: '', volume: '', hargaSatuan: '', satuanCustom: 'm2' }])
   const [termins, setTermins] = useState([
-    { namaTermin: 'DP', persentase: '30', nominalInput: '' },
-    { namaTermin: 'Termin-1', persentase: '40', nominalInput: '' },
-    { namaTermin: 'Pelunasan', persentase: '30', nominalInput: '' },
+    { namaTermin: 'DP', persentase: '30', nominalInput: '', tanggalJatuhTempo: '' },
+    { namaTermin: 'Termin-1', persentase: '40', nominalInput: '', tanggalJatuhTempo: '' },
+    { namaTermin: 'Pelunasan', persentase: '30', nominalInput: '', tanggalJatuhTempo: '' },
   ])
   const [contractDates, setContractDates] = useState({ tanggalMulai: '', tanggalSelesai: '', catatan: '' })
   const [contractLoading, setContractLoading] = useState(false)
@@ -43,6 +50,70 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [expenseForm, setExpenseForm] = useState({ kategori: 'MATERIAL', deskripsi: '', jumlah: '', tanggal: '', jenisMaterial: '', qty: '', hargaSatuan: '', satuanMaterial: 'sak' })
   const [expenseLoading, setExpenseLoading] = useState(false)
+  const [uploadLoading, setUploadLoading] = useState(false)
+  const [uploadKategori, setUploadKategori] = useState('LAINNYA')
+  const [reminderLoading, setReminderLoading] = useState<string | null>(null)
+  const [statusLoading, setStatusLoading] = useState(false)
+  const [progressInput, setProgressInput] = useState(initial.progress)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [portalUrl, setPortalUrl] = useState(
+    initial.publicToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/portal/${initial.publicToken}` : ''
+  )
+
+  async function handleShare() {
+    setShareLoading(true)
+    const res = await fetch(`/api/pos/projects/${project.id}/portal-token`, { method: 'POST' })
+    const data = await res.json()
+    if (res.ok) {
+      const url = `${window.location.origin}/portal/${data.token}`
+      setPortalUrl(url)
+      setProject(p => ({ ...p, publicToken: data.token }))
+      await navigator.clipboard.writeText(url).catch(() => {})
+      alert(`Link portal klien berhasil dibuat dan disalin!\n\n${url}`)
+    }
+    setShareLoading(false)
+  }
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(portalUrl).then(() => alert('Link disalin!')).catch(() => {})
+  }
+
+  async function handleUpdateStatus(newStatus: string) {
+    if (!confirm(`Ubah status proyek menjadi "${newStatus}"?`)) return
+    setStatusLoading(true)
+    const res = await fetch(`/api/pos/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (res.ok) setProject(p => ({ ...p, status: newStatus }))
+    setStatusLoading(false)
+  }
+
+  async function handleUpdateProgress(val: number) {
+    setProgressInput(val)
+    await fetch(`/api/pos/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ progress: val }),
+    })
+    setProject(p => ({ ...p, progress: val }))
+  }
+
+  // Auto-check jatuh tempo saat halaman dibuka (Ide 3)
+  useEffect(() => {
+    if (project.contract) {
+      fetch('/api/pos/termins/check-due', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.updated > 0) {
+            // Ada termin yang baru jatuh tempo, reload data proyek
+            window.location.reload()
+          }
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   const nilaiKontrak = contractItems.reduce((s, i) => s + (Number(i.volume) * Number(i.hargaSatuan) || 0), 0)
   const totalPersen = termins.reduce((s, t) => s + Number(t.persentase || 0), 0)
@@ -81,7 +152,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
       body: JSON.stringify({
         projectId: project.id, nilaiKontrak, ...contractDates,
         items: contractItems.map(i => ({ serviceId: i.serviceId, deskripsi: i.deskripsi || undefined, volume: Number(i.volume) || 1, hargaSatuan: Number(i.hargaSatuan) })),
-        termins: termins.map(t => ({ namaTermin: t.namaTermin, persentase: Number(t.persentase) })),
+        termins: termins.map(t => ({ namaTermin: t.namaTermin, persentase: Number(t.persentase), tanggalJatuhTempo: t.tanggalJatuhTempo || undefined })),
       }),
     })
     if (res.ok) { router.refresh(); window.location.reload() }
@@ -132,6 +203,41 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
     setExpenseLoading(false)
   }
 
+  async function handleSendReminder(terminId: string) {
+    setReminderLoading(terminId)
+    const res = await fetch(`/api/pos/termins/${terminId}/send-reminder`, { method: 'POST' })
+    const data = await res.json()
+    if (res.ok) alert(`✓ ${data.message}`)
+    else alert(`Gagal: ${data.error}`)
+    setReminderLoading(null)
+  }
+
+  async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadLoading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('kategori', uploadKategori)
+    const res = await fetch(`/api/pos/projects/${project.id}/attachments`, { method: 'POST', body: fd })
+    if (res.ok) {
+      const data = await res.json()
+      setProject(p => ({ ...p, attachments: [data, ...p.attachments] }))
+    } else {
+      const err = await res.json()
+      alert(err.error ?? 'Gagal upload')
+    }
+    e.target.value = ''
+    setUploadLoading(false)
+  }
+
+  async function handleDeleteAttachment(id: string) {
+    if (!confirm('Hapus dokumen ini?')) return
+    const res = await fetch(`/api/pos/projects/${project.id}/attachments/${id}`, { method: 'DELETE' })
+    if (res.ok) setProject(p => ({ ...p, attachments: p.attachments.filter(a => a.id !== id) }))
+    else alert('Gagal menghapus')
+  }
+
   async function handleDeleteExpense(id: string) {
     if (!confirm('Hapus biaya ini?')) return
     const res = await fetch(`/api/pos/expenses/${id}`, { method: 'DELETE' })
@@ -153,13 +259,70 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-xs text-muted-foreground">{project.projectId}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">{project.status}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[project.status]?.bg} ${STATUS_COLOR[project.status]?.text}`}>
+              {STATUS_COLOR[project.status]?.label ?? project.status}
+            </span>
           </div>
           <h1 className="text-lg sm:text-xl font-bold truncate">{project.namaProyek}</h1>
           <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-4 text-xs text-muted-foreground mt-1">
             <span className="flex items-center gap-1 truncate"><Phone className="h-3 w-3 shrink-0" />{project.customer.nama} · {project.customer.noWa}</span>
             <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{project.alamatProyek}</span>
           </div>
+          {/* Progress bar */}
+          {project.status === 'AKTIF' && (
+            <div className="mt-3 space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Progress Pekerjaan</span>
+                <span className="font-semibold" style={{ color: '#6b7c4a' }}>{progressInput}%</span>
+              </div>
+              <input type="range" min={0} max={100} step={5} value={progressInput}
+                onChange={e => setProgressInput(Number(e.target.value))}
+                onMouseUp={e => handleUpdateProgress(Number((e.target as HTMLInputElement).value))}
+                onTouchEnd={e => handleUpdateProgress(Number((e.target as HTMLInputElement).value))}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{ accentColor: '#6b7c4a' }} />
+              <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${progressInput}%`, background: '#6b7c4a' }} />
+              </div>
+            </div>
+          )}
+          {/* Tombol ubah status */}
+          {project.status !== 'BATAL' && (
+            <div className="flex gap-2 mt-3 flex-wrap">
+              {project.status === 'AKTIF' && (
+                <button onClick={() => handleUpdateStatus('SELESAI')} disabled={statusLoading}
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium text-white disabled:opacity-60"
+                  style={{ background: '#22c55e' }}>
+                  ✓ Tandai Selesai
+                </button>
+              )}
+              {project.status === 'SELESAI' && (
+                <span className="text-xs px-3 py-1.5 rounded-lg font-medium bg-green-100 text-green-700">
+                  ✓ Proyek Selesai
+                </span>
+              )}
+              {(project.status === 'AKTIF' || project.status === 'DRAFT') && (
+                <button onClick={() => handleUpdateStatus('BATAL')} disabled={statusLoading}
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-60">
+                  Batalkan Proyek
+                </button>
+              )}
+              {/* Tombol share portal klien */}
+              {portalUrl ? (
+                <button onClick={handleCopyLink}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium border"
+                  style={{ borderColor: '#6b7c4a', color: '#6b7c4a' }}>
+                  <Share2 className="h-3 w-3" /> Salin Link Klien
+                </button>
+              ) : (
+                <button onClick={handleShare} disabled={shareLoading}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium border disabled:opacity-60"
+                  style={{ borderColor: '#6b7c4a', color: '#6b7c4a' }}>
+                  <Share2 className="h-3 w-3" /> {shareLoading ? 'Membuat...' : 'Buat Link Klien'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -170,6 +333,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
           { key: 'contract', label: 'Kontrak' },
           { key: 'termins', label: 'Termin' },
           { key: 'expenses', label: 'Biaya Operasional' },
+          { key: 'dokumen', label: 'Dokumen' },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors shrink-0 ${tab === t.key ? 'border-[#6b7c4a] text-[#6b7c4a]' : 'border-transparent text-muted-foreground'}`}>
@@ -371,23 +535,30 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                               {termins.length > 1 && <Button type="button" size="sm" variant="ghost" onClick={() => setTermins(p => p.filter((_, idx) => idx !== i))}><Trash2 className="h-3 w-3 text-red-500" /></Button>}
                             </div>
                             <div className="flex gap-2 items-center">
+                              <div className="flex-1 space-y-1">
+                                <label className="text-xs text-muted-foreground">Jatuh Tempo</label>
+                                <Input type="date" className="text-sm" value={t.tanggalJatuhTempo}
+                                  onChange={e => setTermins(p => p.map((x, idx) => idx === i ? { ...x, tanggalJatuhTempo: e.target.value } : x))} />
+                              </div>
+                            </div>
+                            <div className="flex gap-2 items-center">
                               {/* Input nominal → hitung persentase */}
                               <div className="flex-1 relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
                                 <Input
                                   className="pl-8 text-sm"
-                                  placeholder="Nominal"
-                                  type="number"
-                                  value={nominalDisplay}
+                                  placeholder="200.000.000"
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={t.nominalInput !== ''
+                                    ? Number(t.nominalInput).toLocaleString('id-ID')
+                                    : (nominalDariPersen > 0 ? nominalDariPersen.toLocaleString('id-ID') : '')}
                                   onChange={e => {
-                                    const val = e.target.value
-                                    const pct = nilaiKontrak > 0 && val ? ((Number(val) / nilaiKontrak) * 100).toFixed(2) : ''
-                                    setTermins(p => p.map((x, idx) => idx === i ? { ...x, nominalInput: val, persentase: pct } : x))
+                                    const raw = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '')
+                                    const pct = nilaiKontrak > 0 && raw ? ((Number(raw) / nilaiKontrak) * 100).toFixed(2) : ''
+                                    setTermins(p => p.map((x, idx) => idx === i ? { ...x, nominalInput: raw, persentase: pct } : x))
                                   }}
-                                  onBlur={() => {
-                                    // Saat blur, simpan persentase final — nominalInput tetap ada supaya angka tidak berubah
-                                    // Tidak perlu clear, biarkan user lihat angka yang dia ketik
-                                  }}
+                                  onBlur={() => {}}
                                 />
                               </div>
                               {/* Input persentase → hitung nominal */}
@@ -406,7 +577,7 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                           </div>
                           )
                         })}
-                        <Button type="button" size="sm" variant="outline" onClick={() => setTermins(p => [...p, { namaTermin: '', persentase: '', nominalInput: '' }])}>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setTermins(p => [...p, { namaTermin: '', persentase: '', nominalInput: '', tanggalJatuhTempo: '' }])}>
                           <Plus className="h-3 w-3 mr-1" /> Tambah Termin
                         </Button>
                       </div>
@@ -452,6 +623,12 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                       <p className="font-bold">{formatRupiah(t.jumlah)} <span className="text-xs font-normal text-muted-foreground">({t.persentase}%)</span></p>
                       {t.tanggalTagih && <p className="text-xs text-muted-foreground">Ditagih: {new Date(t.tanggalTagih).toLocaleDateString('id-ID')}</p>}
                       {t.tanggalBayar && <p className="text-xs text-green-600">Dibayar: {new Date(t.tanggalBayar).toLocaleDateString('id-ID')}</p>}
+                      {t.tanggalJatuhTempo && t.status === 'BELUM_DITAGIH' && (
+                        <p className="text-xs" style={{ color: new Date(t.tanggalJatuhTempo) <= new Date() ? '#ef4444' : '#d97706' }}>
+                          Jatuh tempo: {new Date(t.tanggalJatuhTempo).toLocaleDateString('id-ID')}
+                          {new Date(t.tanggalJatuhTempo) <= new Date() ? ' ⚠️ Sudah lewat' : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1.5 items-end shrink-0">
                       {t.status === 'BELUM_DITAGIH' && (
@@ -462,6 +639,11 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
                         <Link href={`/dashboard/pos/invoice/${t.id}`} target="_blank">
                           <Button size="sm" variant="outline"><Printer className="h-3 w-3 mr-1" />Invoice</Button>
                         </Link>
+                        <Button size="sm" variant="outline" className="text-green-600 border-green-300"
+                          disabled={reminderLoading === t.id}
+                          onClick={() => handleSendReminder(t.id)}>
+                          {reminderLoading === t.id ? '...' : '📱 WA'}
+                        </Button>
                       </>)}
                       {t.status === 'LUNAS' && (
                         <Link href={`/dashboard/pos/invoice/${t.id}`} target="_blank">
@@ -510,6 +692,75 @@ export function ProjectDetailClient({ project: initial, catalogs }: { project: P
               {project.contract.expenses.length === 0 && <p className="text-center py-8 text-muted-foreground text-sm">Belum ada biaya operasional.</p>}
             </div>
           </>)}
+        </div>
+      )}
+
+      {/* Tab: Dokumen */}
+      {tab === 'dokumen' && (
+        <div className="space-y-4">
+          {/* Upload area */}
+          <div className="p-4 border-2 border-dashed rounded-lg space-y-3" style={{ borderColor: '#6b7c4a' }}>
+            <p className="text-sm font-medium">Upload Dokumen</p>
+            <div className="flex flex-wrap gap-2 items-center">
+              <select className="border rounded-md px-3 py-2 text-sm" value={uploadKategori} onChange={e => setUploadKategori(e.target.value)}>
+                <option value="RAB">RAB</option>
+                <option value="DESAIN">Desain Arsitektur</option>
+                <option value="SONDIR">Hasil Tes Sondir</option>
+                <option value="FOTO">Foto Lokasi/Progress</option>
+                <option value="KONTRAK">Kontrak/SPK</option>
+                <option value="LAINNYA">Lainnya</option>
+              </select>
+              <label className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer" style={{ background: uploadLoading ? '#9ca3af' : '#6b7c4a' }}>
+                <Plus className="h-4 w-4" />
+                {uploadLoading ? 'Mengupload...' : 'Pilih File'}
+                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.dwg,.xlsx,.xls,.docx,.doc" onChange={handleUploadFile} disabled={uploadLoading} />
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">PDF, Gambar, DWG, Excel, Word — maks 20MB</p>
+          </div>
+
+          {/* Daftar dokumen per kategori */}
+          {['RAB', 'DESAIN', 'SONDIR', 'FOTO', 'KONTRAK', 'LAINNYA'].map(kat => {
+            const docs = project.attachments.filter(a => a.kategori === kat)
+            if (docs.length === 0) return null
+            const katLabel: Record<string, string> = { RAB: 'RAB', DESAIN: 'Desain Arsitektur', SONDIR: 'Tes Sondir', FOTO: 'Foto', KONTRAK: 'Kontrak/SPK', LAINNYA: 'Lainnya' }
+            return (
+              <div key={kat} className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{katLabel[kat]}</p>
+                {docs.map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between gap-2 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded flex items-center justify-center shrink-0 text-xs font-bold text-white"
+                        style={{ background: doc.tipe === 'image' ? '#6b7c4a' : doc.tipe === 'pdf' ? '#ef4444' : '#3b82f6' }}>
+                        {doc.tipe === 'image' ? 'IMG' : doc.tipe === 'pdf' ? 'PDF' : 'DOC'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{doc.namaFile}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {doc.ukuran > 0 ? `${(doc.ukuran / 1024).toFixed(0)} KB · ` : ''}
+                          {new Date(doc.createdAt).toLocaleDateString('id-ID')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a href={doc.url} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded border hover:bg-gray-100 transition-colors" style={{ color: '#6b7c4a' }}>
+                        Buka
+                      </a>
+                      <button onClick={() => handleDeleteAttachment(doc.id)} className="text-red-400 hover:text-red-600 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+
+          {project.attachments.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="text-sm">Belum ada dokumen. Upload dokumen proyek di atas.</p>
+            </div>
+          )}
         </div>
       )}
 

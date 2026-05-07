@@ -46,11 +46,33 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         </Link>
       </div>
 
+      {/* Filter status */}
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { label: 'Semua', value: '' },
+          { label: 'Draft', value: 'DRAFT' },
+          { label: 'Aktif', value: 'AKTIF' },
+          { label: 'Selesai', value: 'SELESAI' },
+          { label: 'Batal', value: 'BATAL' },
+        ].map(f => (
+          <Link key={f.value} href={f.value ? `/dashboard/pos/projects?status=${f.value}` : '/dashboard/pos/projects'}>
+            <span className={`text-xs px-3 py-1.5 rounded-full font-medium cursor-pointer transition-colors ${
+              (status ?? '') === f.value
+                ? 'text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`} style={(status ?? '') === f.value ? { background: '#6b7c4a' } : {}}>
+              {f.label}
+            </span>
+          </Link>
+        ))}
+      </div>
+
       <div className="space-y-3">
         {projects.map(p => {
           const lunas = p.contract?.termins.filter(t => t.status === 'LUNAS').reduce((s, t) => s + Number(t.jumlah), 0) ?? 0
           const total = Number(p.contract?.nilaiKontrak ?? 0)
           const pct = total > 0 ? Math.round((lunas / total) * 100) : 0
+          const progress = (p as any).progress ?? 0
 
           return (
             <div key={p.id} className="relative group">
@@ -68,6 +90,16 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <MapPin className="h-3 w-3" />{p.alamatProyek}
                       </div>
+                      {p.status === 'AKTIF' && progress > 0 && (
+                        <div className="pt-1 space-y-0.5">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Progress</span><span style={{ color: '#6b7c4a' }}>{progress}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-gray-200 rounded-full">
+                            <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, background: '#6b7c4a' }} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       {p.contract ? (
@@ -93,7 +125,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         {projects.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Belum ada proyek. Buat proyek pertama Anda.</p>
+            <p>Belum ada proyek{status ? ` dengan status ${status}` : ''}.</p>
           </div>
         )}
       </div>

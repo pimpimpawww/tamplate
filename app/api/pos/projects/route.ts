@@ -13,10 +13,12 @@ const schema = z.object({
 /** Generate Project ID: PRJ-YYYY-NNN */
 async function generateProjectId(): Promise<string> {
   const year = new Date().getFullYear()
-  const count = await prisma.project.count({
+  const last = await prisma.project.findFirst({
     where: { projectId: { startsWith: `PRJ-${year}-` } },
+    orderBy: { projectId: 'desc' },
   })
-  const seq = String(count + 1).padStart(3, '0')
+  const lastSeq = last ? parseInt(last.projectId.split('-')[2]) : 0
+  const seq = String(lastSeq + 1).padStart(3, '0')
   return `PRJ-${year}-${seq}`
 }
 

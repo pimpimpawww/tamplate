@@ -6,6 +6,7 @@ import { z } from 'zod'
 const terminSchema = z.object({
   namaTermin: z.string().min(1),
   persentase: z.number().min(0).max(100),
+  tanggalJatuhTempo: z.string().optional(),
 })
 
 const itemSchema = z.object({
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
           namaTermin: t.namaTermin,
           persentase: t.persentase,
           jumlah: (nilaiKontrak * t.persentase) / 100,
+          tanggalJatuhTempo: t.tanggalJatuhTempo ? new Date(t.tanggalJatuhTempo) : null,
         })),
       },
     },
